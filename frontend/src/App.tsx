@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -6,8 +6,12 @@ import Dashboard from './pages/Dashboard';
 import Track from './pages/Track';
 import Analytics from './pages/Analytics';
 import Calendar from './pages/Calendar';
+import Habits from './pages/Habits';
+import Notes from './pages/Notes';
+import Profile from './pages/Profile.tsx';
 import BottomNav from './components/BottomNav';
 import { useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
   const auth = useAuth();
@@ -29,45 +33,60 @@ function App() {
   }, [isDark]);
 
   return (
-    <Router>
-      <div className="min-h-screen transition-colors duration-500">
-        {auth.isAuthenticated && (
-          <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-            <div className="page-shell flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.32em] text-slate-400">LifeTracker</p>
-                <h1 className="text-2xl font-semibold text-white">Smart habits, beautiful growth.</h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => setIsDark(!isDark)}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white shadow-lg shadow-black/20 transition hover:bg-white/15"
-                >
-                  {isDark ? 'Light mode' : 'Dark mode'}
-                  <span className="inline-block transition-transform duration-300" aria-hidden="true">
-                    {isDark ? '☀️' : '🌙'}
-                  </span>
-                </button>
-                <span className="badge">{isDark ? 'Dark' : 'Light'}</span>
-              </div>
+    <ThemeProvider value={{ isDark, setIsDark }}>
+      <Router>
+        <div className="min-h-screen page-base">
+          {auth.isAuthenticated ? (
+            <div className="app-shell">
+              <header className="top-header">
+                <div className="header-inner page-shell flex items-center justify-between gap-4">
+                  <div className="brand-group flex items-center gap-3">
+                    <div className="brand-mark">L</div>
+                    <div>
+                      <p className="brand-label">LifeTracker</p>
+                      <p className="brand-subtitle">Your discipline dashboard</p>
+                    </div>
+                  </div>
+
+                  <div className="header-actions flex items-center gap-3">
+                    <button type="button" onClick={() => setIsDark(!isDark)} className="theme-circle">
+                      {isDark ? '☀️' : '🌙'}
+                    </button>
+                    <Link to="/profile" className="avatar-circle" title="Profile">
+                      <span>DL</span>
+                    </Link>
+                  </div>
+                </div>
+              </header>
+
+              <main className="main-area page-shell">
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/track" element={<Track />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/habits" element={<Habits />} />
+                  <Route path="/notes" element={<Notes />} />
+                  <Route path="/profile" element={<Profile />} />
+                </Routes>
+              </main>
             </div>
-          </header>
-        )}
+          ) : (
+            <main className="min-h-screen">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/*" element={<Login />} />
+              </Routes>
+            </main>
+          )}
 
-        <main className="min-h-[calc(100vh-72px)]">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/" element={auth.isAuthenticated ? <Dashboard /> : <Login />} />
-            <Route path="/track" element={auth.isAuthenticated ? <Track /> : <Login />} />
-            <Route path="/analytics" element={auth.isAuthenticated ? <Analytics /> : <Login />} />
-            <Route path="/calendar" element={auth.isAuthenticated ? <Calendar /> : <Login />} />
-          </Routes>
-        </main>
-
-        {auth.isAuthenticated && <BottomNav />}
-      </div>
-    </Router>
+          {auth.isAuthenticated && <BottomNav />}
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 

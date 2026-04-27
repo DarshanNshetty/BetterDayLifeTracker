@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+
+const scoreOptions = [
+    { value: -2, label: '-2' },
+    { value: -1, label: '-1' },
+    { value: 0, label: '0' },
+    { value: 1, label: '+1' },
+    { value: 2, label: '+2' },
+];
 
 const Track = () => {
     const [categories, setCategories] = useState<any[]>([]);
@@ -8,79 +16,117 @@ const Track = () => {
     const [morning, setMorning] = useState(0);
     const [afternoon, setAfternoon] = useState(0);
     const [evening, setEvening] = useState(0);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         const fetchCategories = async () => {
-            const res = await axios.get('http://localhost:5000/api/categories');
-            setCategories(res.data);
+            try {
+                const res = await axios.get('http://localhost:5000/api/categories');
+                setCategories(res.data);
+                if (res.data.length) {
+                    setSelectedCategory(res.data[0]._id);
+                }
+            } catch (error) {
+                console.error(error);
+            }
         };
         fetchCategories();
     }, []);
 
+    const selectedCategoryLabel = categories.find((cat) => cat._id === selectedCategory)?.name || 'Choose a category';
+    const averageScore = useMemo(() => ((morning + afternoon + evening) / 3).toFixed(2), [morning, afternoon, evening]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await axios.post('http://localhost:5000/api/entries', {
-            category: selectedCategory,
-            date,
-            morningScore: morning,
-            afternoonScore: afternoon,
-            eveningScore: evening
-        });
-        alert('Entry saved');
+        setSaving(true);
+        try {
+            await axios.post('http://localhost:5000/api/entries', {
+                category: selectedCategory,
+                date,
+                morningScore: morning,
+                afternoonScore: afternoon,
+                eveningScore: evening,
+            });
+            alert('Entry saved');
+        } catch (error) {
+            console.error(error);
+            alert('Unable to save entry.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div className="page-shell">
             <div className="mb-10">
-                <span className="badge">Daily log</span>
-                <h1 className="page-title mt-4">Track your energy</h1>
-                <p className="section-subtitle">Enter how your day felt and keep your performance streak on track.</p>
+                <span className="badge">Track</span>
+                <h1 className="page-title mt-4">Daily performance</h1>
+                <p className="section-subtitle">Pick a category and log your morning, afternoon, and evening scores with quick, bold controls.</p>
             </div>
-            <section className="track-panel">
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <label className="block">
-                        <span className="field-label">Category</span>
-                        <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="select-field" required>
-                            <option value="">Select Category</option>
-                            {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
-                        </select>
-                    </label>
-                    <label className="block">
-                        <span className="field-label">Date</span>
-                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" />
-                    </label>
-                    <label className="block">
-                        <span className="field-label">Morning</span>
-                        <select value={morning} onChange={(e) => setMorning(parseInt(e.target.value))} className="select-field">
-                            <option value={-2}>Very Bad</option>
-                            <option value={-1}>Bad</option>
-                            <option value={0}>Neutral</option>
-                            <option value={1}>Good</option>
-                            <option value={2}>Excellent</option>
-                        </select>
-                    </label>
-                    <label className="block">
-                        <span className="field-label">Afternoon</span>
-                        <select value={afternoon} onChange={(e) => setAfternoon(parseInt(e.target.value))} className="select-field">
-                            <option value={-2}>Very Bad</option>
-                            <option value={-1}>Bad</option>
-                            <option value={0}>Neutral</option>
-                            <option value={1}>Good</option>
-                            <option value={2}>Excellent</option>
-                        </select>
-                    </label>
-                    <label className="block">
-                        <span className="field-label">Evening</span>
-                        <select value={evening} onChange={(e) => setEvening(parseInt(e.target.value))} className="select-field">
-                            <option value={-2}>Very Bad</option>
-                            <option value={-1}>Bad</option>
-                            <option value={0}>Neutral</option>
-                            <option value={1}>Good</option>
-                            <option value={2}>Excellent</option>
-                        </select>
-                    </label>
-                    <button type="submit" className="primary-btn">Save Entry</button>
-                </form>
+
+            <section className="glass-card p-6">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p className="text-sm uppercase tracking-[0.24em] text-[#9ca3af]">Selected goal</p>
+                        <h2 className="text-2xl font-semibold text-white mt-3">{selectedCategoryLabel}</h2>
+                    </div>
+                    <div className="metric-card">
+                        <p>Total score</p>
+                        <strong>{averageScore}</strong>
+                    </div>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                    <div>
+                        <p className="text-sm uppercase tracking-[0.24em] text-[#9ca3af] mb-3">Categories</p>
+                        <div className="chip-group">
+                            {categories.map((category) => (
+                                <button
+                                    key={category._id}
+                                    type="button"
+                                    onClick={() => setSelectedCategory(category._id)}
+                                    className={`chip ${selectedCategory === category._id ? 'active' : ''}`}
+                                >
+                                    {category.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-3">
+                        {['Morning', 'Afternoon', 'Evening'].map((label, index) => {
+                            const scoreValue = index === 0 ? morning : index === 1 ? afternoon : evening;
+                            const setScore = index === 0 ? setMorning : index === 1 ? setAfternoon : setEvening;
+                            return (
+                                <div key={label} className="metric-card">
+                                    <p className="text-sm uppercase tracking-[0.24em] text-[#9ca3af]">{label}</p>
+                                    <div className="button-group mt-4">
+                                        {scoreOptions.map((option) => (
+                                            <button
+                                                key={`${label}-${option.value}`}
+                                                type="button"
+                                                onClick={() => setScore(option.value)}
+                                                className={`track-option ${scoreValue === option.value ? 'active' : ''} ${option.value < 0 ? 'negative' : ''}`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <label className="block">
+                            <span className="field-label">Date</span>
+                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" />
+                        </label>
+                        <button type="submit" className="primary-btn" disabled={saving || !selectedCategory}>
+                            {saving ? 'Saving...' : 'Save track entry'}
+                        </button>
+                    </form>
+                </div>
             </section>
         </div>
     );
