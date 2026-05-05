@@ -1,158 +1,381 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { FaAppleAlt, FaWallet, FaDrumstickBite, FaDumbbell, FaBookOpen, FaEllipsisH } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { motion, type Variants } from 'framer-motion';
+import { FaPlus } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AnimatedPlant from '../components/AnimatedPlant';
 
-const categoryItems = [
-    { name: 'Food', icon: FaAppleAlt, stat: '+1.20' },
-    { name: 'Expense', icon: FaWallet, stat: '-0.50' },
-    { name: 'Diet', icon: FaDrumstickBite, stat: '+0.80' },
-    { name: 'Exercise', icon: FaDumbbell, stat: '+1.00' },
-    { name: 'Learning', icon: FaBookOpen, stat: '+0.30' },
-    { name: 'Others', icon: FaEllipsisH, stat: '+0.10' },
-];
+interface Category {
+    id: string | number;
+    name: string;
+    emoji: string;
+}
 
 const Dashboard = () => {
-    const [data, setData] = useState<any>(null);
+    const navigate = useNavigate();
+    const [growthScore, setGrowthScore] = useState(2); // 0-2 (seed, sprout, plant)
+    const [streak] = useState(12);
+    const [selectedCategory, setSelectedCategory] = useState('Food');
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategory, setNewCategory] = useState('');
+    const [categories, setCategories] = useState<Category[]>([]);
+
+    const API_BASE_URL = 'http://localhost:5000/api';
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchCategories = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/dashboard');
-                setData(res.data);
+                const response = await axios.get(`${API_BASE_URL}/categories`);
+                const mappedCategories = response.data.map((cat: any) => ({
+                    id: cat._id,
+                    name: cat.name,
+                    emoji: cat.emoji,
+                }));
+                setCategories(mappedCategories);
+                if (mappedCategories.length > 0) {
+                    setSelectedCategory(mappedCategories[0].name);
+                }
             } catch (error) {
-                console.error(error);
-                setData({
-                    todayScore: 1.2,
-                    yesterdayScore: 0.8,
-                    weeklyAvg: 0.95,
-                    streak: 5,
-                    bestCategory: 'Exercise',
-                    worstCategory: 'Expense',
-                    sparkline: [0.8, 1.0, 0.9, 1.1, 1.2, 1.15, 1.2],
-                });
+                console.error('Error fetching categories:', error);
+                // Fallback to default categories if API fails
+                setCategories([
+                    { id: 1, name: 'Food', emoji: '🍽️' },
+                    { id: 2, name: 'Expenses', emoji: '💸' },
+                    { id: 3, name: 'Meditation', emoji: '🧘' },
+                    { id: 4, name: 'Exercise', emoji: '💪' },
+                    { id: 5, name: 'Work', emoji: '📘' },
+                    { id: 6, name: 'Sleep', emoji: '😴' },
+                ]);
             }
         };
-        fetchData();
+
+        fetchCategories();
     }, []);
 
-    const sparkline = data?.sparkline ?? [0.8, 1.0, 0.9, 1.1, 1.2, 1.15, 1.2];
+    const today = new Date();
+    const dateString = today.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
 
-    const scoreDelta = useMemo(() => {
-        if (!data) return 0;
-        return data.todayScore - data.yesterdayScore;
-    }, [data]);
+    const handleAddCategory = async () => {
+        if (newCategory.trim()) {
+            try {
+                const response = await axios.post(`${API_BASE_URL}/categories`, {
+                    name: newCategory,
+                    emoji: '📌',
+                });
+                const newCat = {
+                    id: response.data._id,
+                    name: response.data.name,
+                    emoji: response.data.emoji,
+                };
+                setCategories([...categories, newCat]);
+                setSelectedCategory(newCategory);
+                setNewCategory('');
+                setIsAddingCategory(false);
+            } catch (error) {
+                console.error('Error adding category:', error);
+                // Fallback to local state if API fails
+                setCategories([
+                    ...categories,
+                    {
+                        id: categories.length + 1,
+                        name: newCategory,
+                        emoji: '📌',
+                    },
+                ]);
+                setSelectedCategory(newCategory);
+                setNewCategory('');
+                setIsAddingCategory(false);
+            }
+        }
+    };
 
-    if (!data) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
+    // Container animations
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.2,
+                delayChildren: 0.1,
+            },
+        },
+    };
+
+    const itemVariants: Variants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.6 },
+        },
+    };
+
+    const floatingActionVariants = {
+        initial: { scale: 0 },
+        animate: { scale: 1 },
+        hover: { scale: 1.1 },
+        tap: { scale: 0.95 },
+    };
+
+    const progressVariants: Variants = {
+        initial: { scaleX: 0 },
+        animate: { scaleX: 1 },
+    };
 
     return (
-        <div className="page-shell">
-            <div className="mb-8">
-                <p className="text-sm uppercase tracking-[0.28em] text-[#9ca3af]">Good evening, Darshan 👋</p>
-                <h1 className="page-title mt-3">LifeTracker</h1>
-                <p className="section-subtitle">Stay consistent, see progress, and keep your discipline on track.</p>
+        <motion.div
+            className="min-h-screen pb-32 pt-4 px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+        >
+            {/* Background glow effects */}
+            <div className="fixed inset-0 pointer-events-none">
+                <div className="absolute top-20 left-10 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-40 right-10 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
             </div>
 
-            <div className="grid gap-4">
-                <div className="glass-card score-card compact-card p-5">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className="text-xs uppercase tracking-[0.32em] text-[#9ca3af]">Today's score</p>
-                            <p className="score-value mt-3">{data.todayScore.toFixed(2)}</p>
-                            <div className="score-badge mt-3">
-                                <span className={scoreDelta >= 0 ? 'score-chip positive' : 'score-chip negative'}>
-                                    {scoreDelta >= 0 ? '↑' : '↓'} {scoreDelta >= 0 ? '+' : ''}{scoreDelta.toFixed(2)}
-                                </span>
-                                <span className="text-sm text-slate-400 ml-2">{data.weeklyAvg ? `${data.weeklyAvg.toFixed(2)} avg` : 'Weekly average'}</span>
+            <div className="relative z-10 max-w-2xl mx-auto">
+                {/* Plant Growth Hero Card */}
+                <motion.div
+                    variants={itemVariants}
+                    className="mb-8"
+                >
+                    <motion.div
+                        className="relative rounded-2xl bg-gradient-to-br from-emerald-900/40 via-emerald-800/20 to-teal-900/30 border border-emerald-500/20 p-8 backdrop-blur-xl shadow-2xl"
+                        whileHover={{ boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)' }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        {/* Glowing border effect */}
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                        <div className="relative z-10 flex flex-col items-center">
+                            {/* Animated Plant */}
+                            <motion.div
+                                animate={{ y: [0, -8, 0] }}
+                                transition={{ duration: 3, repeat: Infinity, repeatType: 'loop' as const }}
+                            >
+                                <AnimatedPlant stage={growthScore} />
+                            </motion.div>
+
+                            {/* Growth Info */}
+                            <div className="text-center mt-6">
+                                <motion.h2
+                                    className="text-3xl font-bold text-emerald-400 mb-1"
+                                    animate={{ scale: [1, 1.02, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity, repeatType: 'loop' as const }}
+                                >
+                                    Day {streak} Growth
+                                </motion.h2>
+                                <p className="text-emerald-300/80 text-sm">
+                                    Level {growthScore + 1} • {growthScore === 0 ? 'Tiny Seed' : growthScore === 1 ? 'Healthy Sprout' : 'Thriving Plant'}
+                                </p>
                             </div>
-                        </div>
-                        <div className="sparkline-card">
-                            <div className="sparkline-label">Trend</div>
-                            <div className="sparkline-track">
-                                {sparkline.map((value: number, index: number) => {
-                                    const min = Math.min(...sparkline);
-                                    const max = Math.max(...sparkline);
-                                    const height = ((value - min) / (max - min || 1)) * 100;
-                                    return <span key={index} style={{ height: `${Math.max(height, 16)}%` }} />;
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div className="glass-card compact-card p-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-xs uppercase tracking-[0.32em] text-[#9ca3af]">Quick actions</p>
-                            <h2 className="text-xl font-semibold text-white mt-2">Jump into your routine</h2>
-                        </div>
-                        <Link to="/habits" className="small-pill">Habits</Link>
-                    </div>
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                        <Link to="/track" className="category-card compact">
-                            <p className="category-label">Track</p>
-                            <p className="category-title">Log your day</p>
-                        </Link>
-                        <Link to="/analytics" className="category-card compact">
-                            <p className="category-label">Analytics</p>
-                            <p className="category-title">Review trends</p>
-                        </Link>
-                        <Link to="/calendar" className="category-card compact">
-                            <p className="category-label">Calendar</p>
-                            <p className="category-title">View your month</p>
-                        </Link>
-                        <Link to="/notes" className="category-card compact">
-                            <p className="category-label">Notes</p>
-                            <p className="category-title">Capture ideas</p>
-                        </Link>
-                    </div>
-                </div>
-            </div>
+                            {/* Status Message */}
+                            <motion.div
+                                className="mt-6 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-center"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                            >
+                                <p className="text-emerald-200 text-sm">
+                                    ✅ You watered your plant today 🌱
+                                </p>
+                            </motion.div>
 
-            <section className="mt-7">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <p className="text-xs uppercase tracking-[0.32em] text-[#9ca3af]">Categories</p>
-                        <h2 className="text-2xl font-semibold text-white mt-2">Top discipline categories</h2>
-                    </div>
-                    <Link to="/notes" className="secondary-link">View more →</Link>
-                </div>
-
-                <div className="category-grid mt-4">
-                    {categoryItems.map((category) => {
-                        const Icon = category.icon;
-                        return (
-                            <button key={category.name} type="button" className="category-card square-card group">
-                                <div className="category-icon">
-                                    <Icon />
+                            {/* Progress Bar */}
+                            <div className="w-full mt-6">
+                                <div className="flex justify-between items-center mb-2">
+                                    <p className="text-emerald-300/70 text-xs font-semibold">STREAK PROGRESS</p>
+                                    <p className="text-emerald-400 text-xs font-bold">{streak}%</p>
                                 </div>
+                                <div className="w-full h-2 bg-slate-800/60 rounded-full overflow-hidden border border-emerald-500/20">
+                                    <motion.div
+                                        className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full shadow-lg shadow-emerald-500/50"
+                                        variants={progressVariants}
+                                        initial="initial"
+                                        animate="animate"
+                                        transition={{ duration: 1.2 }}
+                                        style={{ width: `${streak}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Growth Stage Buttons */}
+                            <div className="flex gap-2 mt-6">
+                                {[0, 1, 2].map((stage) => (
+                                    <motion.button
+                                        key={stage}
+                                        onClick={() => setGrowthScore(stage)}
+                                        className={`w-10 h-10 rounded-full border-2 transition-all ${growthScore === stage
+                                            ? 'bg-emerald-500/30 border-emerald-400 shadow-lg shadow-emerald-500/50'
+                                            : 'bg-slate-800/40 border-slate-700 hover:border-emerald-500/50'
+                                            }`}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <span className="text-lg">
+                                            {stage === 0 ? '🌱' : stage === 1 ? '🌿' : '🌳'}
+                                        </span>
+                                    </motion.button>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Daily Track Section */}
+                <motion.div
+                    variants={itemVariants}
+                    className="mb-8"
+                >
+                    <motion.div
+                        className="rounded-2xl bg-slate-900/40 border border-slate-700/50 p-6 backdrop-blur-lg shadow-xl"
+                        whileHover={{ borderColor: 'rgba(74, 222, 128, 0.3)' }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        {/* Date */}
+                        <div className="mb-6">
+                            <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">
+                                TODAY'S DATE
+                            </p>
+                            <p className="text-slate-200 text-lg font-light mt-1">{dateString}</p>
+                        </div>
+
+                        {/* Day Score */}
+                        <div className="mb-6 pb-6 border-b border-slate-700/50">
+                            <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-2">
+                                Daily Score
+                            </p>
+                            <motion.div
+                                className="text-4xl font-bold text-emerald-400"
+                                animate={{ scale: [1, 1.05, 1] }}
+                                transition={{ duration: 2, repeat: Infinity, repeatType: 'loop' as const, delay: 0.5 }}
+                            >
+                                0.0
+                            </motion.div>
+                        </div>
+
+                        {/* Category Dropdown */}
+                        <div className="mb-4">
+                            <label className="text-slate-400 text-xs font-semibold uppercase tracking-widest block mb-3">
+                                Select Category
+                            </label>
+
+                            {!isAddingCategory ? (
                                 <div>
-                                    <p className="font-semibold text-white">{category.name}</p>
-                                    <p className="mt-2 text-sm text-[#9ca3af]">{category.stat} today</p>
+                                    <select
+                                        value={selectedCategory}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'add-new') {
+                                                setIsAddingCategory(true);
+                                            } else {
+                                                setSelectedCategory(e.target.value);
+                                            }
+                                        }}
+                                        className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                                    >
+                                        {categories.map((cat) => (
+                                            <option key={cat.id} value={cat.name}>
+                                                {cat.emoji} {cat.name}
+                                            </option>
+                                        ))}
+                                        <option value="add-new">+ Add New Category</option>
+                                    </select>
                                 </div>
-                                <div className="category-mini-line">
-                                    <span />
-                                </div>
-                            </button>
-                        );
-                    })}
-                    <Link to="/notes" className="category-card square-card category-card-more">
-                        <div className="view-more-inner">View More →</div>
-                    </Link>
-                </div>
-            </section>
+                            ) : (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="flex gap-2"
+                                >
+                                    <input
+                                        type="text"
+                                        value={newCategory}
+                                        onChange={(e) => setNewCategory(e.target.value)}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleAddCategory();
+                                            }
+                                        }}
+                                        placeholder="Enter category name..."
+                                        className="flex-1 px-4 py-3 bg-slate-800/60 border border-emerald-500/30 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                                        autoFocus
+                                    />
+                                    <motion.button
+                                        onClick={handleAddCategory}
+                                        className="px-4 py-3 bg-emerald-500/30 border border-emerald-500/50 rounded-lg text-emerald-400 font-semibold hover:bg-emerald-500/40 transition-colors"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        Add
+                                    </motion.button>
+                                    <motion.button
+                                        onClick={() => {
+                                            setIsAddingCategory(false);
+                                            setNewCategory('');
+                                        }}
+                                        className="px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-lg text-slate-400 hover:text-slate-300 transition-colors"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        Cancel
+                                    </motion.button>
+                                </motion.div>
+                            )}
+                        </div>
 
-            <div className="dashboard-grid mt-6">
-                <article className="stat-card compact-card">
-                    <h2>Best category</h2>
-                    <p className="stat-value">{data.bestCategory}</p>
-                </article>
-                <article className="stat-card compact-card">
-                    <h2>Lowest category</h2>
-                    <p className="stat-value">{data.worstCategory}</p>
-                </article>
+                        {/* Category Tags */}
+                        <div className="flex flex-wrap gap-2 mt-4">
+                            {categories.map((cat) => (
+                                <motion.button
+                                    key={cat.id}
+                                    onClick={() => setSelectedCategory(cat.name)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${selectedCategory === cat.name
+                                        ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300'
+                                        : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:border-slate-600'
+                                        }`}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    {cat.emoji} {cat.name}
+                                </motion.button>
+                            ))}
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Empty State Message */}
+                <motion.div
+                    variants={itemVariants}
+                    className="text-center py-8"
+                >
+                    <p className="text-slate-400 text-sm">
+                        Track your habits to grow your plant 🌱
+                    </p>
+                </motion.div>
             </div>
-        </div>
+
+            {/* Floating Action Button */}
+            <motion.button
+                variants={floatingActionVariants}
+                initial="initial"
+                animate="animate"
+                whileHover="hover"
+                whileTap="tap"
+                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                className="fixed bottom-28 left-1/2 -translate-x-1/2 w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-emerald-500/50 border border-emerald-300/30 hover:shadow-emerald-500/70 transition-shadow z-40 group"
+                onClick={() => navigate('/track')}
+            >
+                <FaPlus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+            </motion.button>
+        </motion.div>
     );
 };
 

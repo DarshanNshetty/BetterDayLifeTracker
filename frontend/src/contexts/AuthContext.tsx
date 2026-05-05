@@ -23,9 +23,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
+        // Check if token exists
         const token = localStorage.getItem('token');
         if (token) {
             axios.defaults.headers.common['x-auth-token'] = token;
+            setIsAuthenticated(true);
+        } else {
+            // Demo mode: auto-authenticate for development/showcase
+            const demoToken = 'demo-token-' + Date.now();
+            localStorage.setItem('token', demoToken);
+            axios.defaults.headers.common['x-auth-token'] = demoToken;
             setIsAuthenticated(true);
         }
     }, []);

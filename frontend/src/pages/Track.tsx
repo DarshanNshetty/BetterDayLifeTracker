@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
 const scoreOptions = [
@@ -18,20 +19,27 @@ const Track = () => {
     const [evening, setEvening] = useState(0);
     const [saving, setSaving] = useState(false);
 
+    const [searchParams] = useSearchParams();
+
     useEffect(() => {
         const fetchCategories = async () => {
             try {
                 const res = await axios.get('http://localhost:5000/api/categories');
                 setCategories(res.data);
                 if (res.data.length) {
-                    setSelectedCategory(res.data[0]._id);
+                    const requestedCategory = searchParams.get('category') || '';
+                    const matched = res.data.find((cat: any) =>
+                        cat._id === requestedCategory ||
+                        cat.name.toLowerCase() === requestedCategory.toLowerCase()
+                    );
+                    setSelectedCategory(matched ? matched._id : res.data[0]._id);
                 }
             } catch (error) {
                 console.error(error);
             }
         };
         fetchCategories();
-    }, []);
+    }, [searchParams]);
 
     const selectedCategoryLabel = categories.find((cat) => cat._id === selectedCategory)?.name || 'Choose a category';
     const averageScore = useMemo(() => ((morning + afternoon + evening) / 3).toFixed(2), [morning, afternoon, evening]);

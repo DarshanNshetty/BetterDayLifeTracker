@@ -36,8 +36,15 @@ const Calendar = () => {
     };
 
     const fetchCategories = async () => {
-        const res = await axios.get('http://localhost:5000/api/categories');
-        setCategories(res.data);
+        try {
+            const res = await axios.get('http://localhost:5000/api/categories');
+            setCategories(res.data);
+            if (!selectedCategory && res.data.length) {
+                setSelectedCategory(res.data[0]._id);
+            }
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     useEffect(() => {
